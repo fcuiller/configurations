@@ -1,0 +1,528 @@
+version 15.4
+
+
+! Various security parameters and tweaks
+
+service nagle
+no service pad
+service tcp-keepalives-in
+service tcp-keepalives-out
+service timestamps debug datetime localtime
+service timestamps log datetime localtime
+service password-encryption
+service internal
+service unsupported-transceiver
+no platform punt-keepalive disable-kernel-core
+no platform punt-keepalive settings
+service password-encryption
+no service dhcp
+no mop enabled
+no service config
+no lldp run
+no cdp run
+no vstack
+
+service timestamps debug datetime msec
+service timestamps log datetime msec
+
+platform qfp utilization monitor load 80
+
+!
+hostname RR
+!
+boot-start-marker
+boot system flash bootflash:asr1001x-universalk9.16.03.05.SPA.bin
+boot system flash bootflash:asr1001x-universalk9.16.06.02.SPA.bin
+boot-end-marker
+!
+!
+vrf definition Mgmt-intf
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+ 
+ 
+! Syslog/logging
+
+logging buffered 10000000
+logging rate-limit console all 10 except critical
+logging 192.168.0.1
+logging 192.168.0.2
+logging source-interface Loopback1
+no logging console
+ 
+! AAA 
+!
+!
+aaa new-model
+!
+!
+aaa authentication login default group tacacs+ local
+aaa authentication login aux local
+aaa authentication login console local
+
+aaa authorization exec default group tacacs+ none
+aaa authorization commands 0 default group tacacs+ none
+aaa authorization commands 1 default group tacacs+ none
+aaa authorization commands 15 default group tacacs+ none
+aaa authorization exec console local
+
+aaa accounting exec default start-stop group tacacs+
+aaa accounting commands 0 default start-stop group tacacs+
+aaa accounting commands 1 default start-stop group tacacs+
+aaa accounting commands 15 default start-stop group tacacs+
+
+
+!
+!
+!
+spanning-tree extend system-id
+diagnostic bootup level minimal
+!
+!
+!
+username salt privilege 15 password 7 023505571F545F701A
+
+! TCP tweaks
+
+ip tcp selective-ack
+ip tcp mss 9000
+ip tcp window-size 65535
+ip tcp queuemax 50
+ip tcp path-mtu-discovery
+
+
+ip telnet source-interface Loopback1
+
+
+!
+redundancy
+ mode none
+!
+!
+no lldp run
+no cdp run
+!
+!
+!
+interface Loopback1
+ description Router_ID
+ ip address 10.80.0.141 255.255.255.255
+!
+interface TenGigabitEthernet0/0/0
+ description Link to xxxx Te0/1/0/xx
+ ip address 10.80.130.10 255.255.255.252
+ ip router isis IPBB
+ no mpls ip
+ isis network point-to-point
+ isis metric 5000
+ hold-queue 4096 in
+ hold-queue 4096 out
+ mtu 9202
+ no ip redirects
+ no ip proxy-arp
+ no ip unreachables
+!
+interface TenGigabitEthernet0/0/1
+ description Link to xxxx Te0/0/0/xx
+ ip address 10.80.130.14 255.255.255.252
+ ip router isis IPBB
+ no mpls ip
+ isis network point-to-point
+ isis metric 5000
+ hold-queue 4096 in
+ hold-queue 4096 out
+ mtu 9202
+ no ip redirects
+ no ip proxy-arp
+ no ip unreachables
+ 
+!
+interface GigabitEthernet0/0/0
+ no ip address
+ shutdown
+ negotiation auto
+!
+interface GigabitEthernet0/0/1
+ no ip address
+ shutdown
+ negotiation auto
+!
+interface GigabitEthernet0/0/2
+ no ip address
+ shutdown
+ negotiation auto
+!
+interface GigabitEthernet0/0/3
+ no ip address
+ shutdown
+ negotiation auto
+!
+interface GigabitEthernet0/0/4
+ no ip address
+ shutdown
+ negotiation auto
+!
+interface GigabitEthernet0/0/5
+ no ip address
+ shutdown
+ negotiation auto
+!
+interface GigabitEthernet0
+ vrf forwarding Mgmt-intf
+ description Link to xxx
+ ip address 10.80.0.76 255.255.255.240
+ negotiation auto
+!
+router isis IPBB
+ net 49.0041.0001.0100.8000.0001.00
+ is-type level-2-only
+ metric-style wide
+ set-overload-bit
+ passive-interface Loopback1
+ no hello padding
+ log-adjacency-changes
+!
+
+! BGP
+
+router bgp 15796
+ bgp router-id 10.80.0.1
+ bgp cluster-id 10.80.0.1
+ bgp log-neighbor-changes
+ bgp consistency-checker auto-repair
+ bgp consistency-checker auto-repair interval 720
+ bgp graceful-restart restart-time 300
+ bgp graceful-restart stalepath-time 300
+ bgp graceful-restart
+ bgp maxcommunity-limit 200
+ bgp maxextcommunity-limit 200
+ 
+ no bgp default ipv4-unicast
+ no bgp default route-target filter
+ 
+ neighbor ASR9K peer-group
+ neighbor ASR9K remote-as 15796
+ neighbor ASR9K update-source Loopback1
+ 
+ neighbor ASR900 peer-group
+ neighbor ASR900 remote-as 15796
+ neighbor ASR900 update-source Loopback1
+ 
+ neighbor HUAWEI peer-group
+ neighbor HUAWEI remote-as 15796
+ neighbor HUAWEI update-source Loopback1 
+ 
+ neighbor 10.0.0.1 peer-group ASR9K
+ neighbor 10.0.0.1 description cr-asr9k-1
+ 
+ 
+ neighbor 10.0.0.1   peer-group ASR900 
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family vpnv4
+ bgp slow-peer detection threshold 200
+ bgp slow-peer split-update-group dynamic permanent
+ 
+  neighbor ASR9K send-community both
+  neighbor ASR9K route-reflector-client
+  neighbor ASR9K route-map deny_routes out
+  
+  neighbor HUAWEI send-community both
+  neighbor HUAWEI route-reflector-client
+  neighbor HUAWEI route-map deny_routes out
+  
+  
+  neighbor ASR900 send-community both
+  neighbor ASR900 route-reflector-client
+  neighbor ASR900 route-map deny_routes out
+  
+  neighbor 10.0.0.1 activate
+  
+  address-family vpnv6
+   bgp slow-peer detection threshold 200
+   bgp slow-peer split-update-group dynamic permanent
+   
+   neighbor ASR9K send-community both
+   neighbor ASR9K route-reflector-client
+   neighbor ASR9K route-map deny_routes out
+  
+   neighbor HUAWEI send-community both
+   neighbor HUAWEI route-reflector-client
+   neighbor HUAWEI route-map deny_routes out
+  
+  
+   neighbor ASR900 send-community both
+   neighbor ASR900 route-reflector-client
+   neighbor ASR900 route-map deny_routes out
+   
+   neighbor 10.80.0.7 activate
+  
+  
+ exit-address-family
+!
+
+route-map deny_routes deny 10
+
+ip bgp-community new-format
+
+
+! SSH
+
+ip domain name xxx.fr
+
+
+ip ssh maxstartups 15
+ip ssh source-interface Loopback1
+ip ssh logging events
+ip ssh version 2
+ip ssh dh min size 4096
+ip ssh dscp 56
+ip ssh server algorithm mac hmac-sha1
+ip ssh server algorithm encryption aes128-ctr aes192-ctr aes256-ctr
+ip ssh client algorithm mac hmac-sha1
+ip ssh client algorithm encryption aes128-ctr aes192-ctr aes256-ctr
+
+
+
+
+! Remove services for security
+
+no ip http server
+no ip http authentication local
+no ip http secure-server
+no ip source-route
+no ip bootp server
+no ip domain lookup
+no logging console
+
+! FTP, TFTP
+ip ftp source-interface Loopback1
+ip ftp username username
+ip tftp source-interface GigabitEthernet0
+
+ip route vrf Mgmt-intf 10.0.0.0 255.0.0.0 10.80.0.65
+!
+!
+
+
+! SNMP
+
+!
+snmp-server community matterhorn2017 RO 91
+snmp-server community cervino2017 RW 92
+snmp-server host 192.168.0.1 version 2c secret
+
+access-list 91 remark --- SNMP RO filter ---
+access-list 91 permit 192.168.0.1
+
+access-list 92 remark --- SNMP RW filter ---
+access-list 92 permit 192.168.0.1
+
+snmp-server packetsize 1024
+snmp-server queue-length 200
+snmp-server location XXX
+snmp-server contact NOC
+
+
+snmp-server trap-source Loopback1
+snmp-server enable traps snmp authentication linkdown linkup coldstart warmstart
+snmp-server enable traps vrrp
+snmp-server enable traps pfr
+snmp-server enable traps flowmon
+snmp-server enable traps ds1
+snmp-server enable traps entity-perf throughput-notif
+snmp-server enable traps call-home message-send-fail server-fail
+snmp-server enable traps tty
+snmp-server enable traps eigrp
+snmp-server enable traps casa
+snmp-server enable traps ospf state-change
+snmp-server enable traps ospf errors
+snmp-server enable traps ospf retransmit
+snmp-server enable traps ospf lsa
+snmp-server enable traps ospf cisco-specific state-change nssa-trans-change
+snmp-server enable traps ospf cisco-specific state-change shamlink interface
+snmp-server enable traps ospf cisco-specific state-change shamlink neighbor
+snmp-server enable traps ospf cisco-specific errors
+snmp-server enable traps ospf cisco-specific retransmit
+snmp-server enable traps ospf cisco-specific lsa
+snmp-server enable traps license
+snmp-server enable traps atm subif
+snmp-server enable traps memory bufferpeak
+snmp-server enable traps config-copy
+snmp-server enable traps config
+snmp-server enable traps config-ctid
+snmp-server enable traps dlsw
+snmp-server enable traps fru-ctrl
+snmp-server enable traps entity
+snmp-server enable traps event-manager
+snmp-server enable traps frame-relay
+snmp-server enable traps frame-relay subif
+snmp-server enable traps hsrp
+snmp-server enable traps pppoe
+snmp-server enable traps cpu threshold
+snmp-server enable traps ipsla
+snmp-server enable traps syslog
+snmp-server enable traps l2tun session
+snmp-server enable traps l2tun pseudowire status
+snmp-server enable traps pki
+snmp-server enable traps adslline
+snmp-server enable traps vdsl2line
+snmp-server enable traps ethernet evc status create delete
+snmp-server enable traps ether-oam
+snmp-server enable traps ethernet cfm cc mep-up mep-down cross-connect loop config
+snmp-server enable traps ethernet cfm crosscheck mep-missing mep-unknown service-up
+snmp-server enable traps entity-qfp mem-res-thresh throughput-notif
+snmp-server enable traps entity-state
+snmp-server enable traps netsync
+snmp-server enable traps srp
+snmp-server enable traps isdn call-information
+snmp-server enable traps isdn layer2
+snmp-server enable traps isdn chan-not-avail
+snmp-server enable traps isdn ietf
+snmp-server enable traps cnpd
+snmp-server enable traps entity-diag boot-up-fail hm-test-recover hm-thresh-reached scheduled-test-fail
+snmp-server enable traps cef resource-failure peer-state-change peer-fib-state-change inconsistency
+snmp-server enable traps sonet
+snmp-server enable traps resource-policy
+snmp-server enable traps ip local pool
+snmp-server enable traps trustsec-sxp conn-srcaddr-err msg-parse-err conn-config-err binding-err conn-up conn-down binding-expn-fail oper-nodeid-change binding-conflict
+snmp-server enable traps aaa_server
+snmp-server enable traps dhcp
+snmp-server enable traps rsvp
+snmp-server enable traps ipmulticast
+snmp-server enable traps msdp
+snmp-server enable traps pim neighbor-change rp-mapping-change invalid-pim-message
+snmp-server enable traps mvpn
+snmp-server enable traps pimstdmib neighbor-loss invalid-register invalid-join-prune rp-mapping-change interface-election
+snmp-server enable traps isis
+snmp-server enable traps bgp cbgp2
+snmp-server enable traps ospfv3 state-change
+snmp-server enable traps ospfv3 errors
+snmp-server enable traps nhrp nhs
+snmp-server enable traps nhrp nhc
+snmp-server enable traps nhrp nhp
+snmp-server enable traps nhrp quota-exceeded
+snmp-server enable traps bulkstat collection transfer
+snmp-server enable traps alarms informational
+snmp-server enable traps ethernet cfm alarm
+snmp-server enable traps rf
+snmp-server enable traps transceiver all
+snmp-server enable traps vrfmib vrf-up vrf-down vnet-trunk-up vnet-trunk-down
+
+! TACACS
+ 
+tacacs-server host 192.168.0.1 timeout 1
+tacacs-server host 192.168.0.1 timeout 1
+tacacs-server directed-request
+tacacs-server key  secret
+ip tacacs source-interface Loopback1
+
+!
+!
+!
+control-plane
+
+! BANNERS
+
+banner exec ^CC
+--------------------------------------------------------------------------
+
+                  All events are logged to a security server
+
+--------------------------------------------------------------------------
+Name               : xxxxxx
+Address            : xxxxxx
+Room               : xx
+Bay                : xx
+Type               : Cisco ASR1001-X
+^C
+banner login ^C
+!
+
+banner login ^C
+             
+                                       
+*****************************************************************
+*                                                               *
+*          UNAUTHORIZED ACCESS STRICTLY PROHIBITED              *
+*          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~              *
+*  NOTICE: Access to this device is restricted to authorized    *
+*          agents of x   . only                                 *
+*                                                               *
+*          Accessing this device for any reason without         *
+*          appropriate authorization is not permitted           *
+*                                                               *
+*****************************************************************										
+^C
+
+
+banner motd ^C
+*****************************************************************************
+Unauthorised access prohibited
+*****************************************************************************
+^C
+
+
+! VTY and console
+
+
+ip access-list standard LOGIN-ACLv4
+remark --- VTY filter ---
+permit 192.168.0.1
+
+
+
+!
+line con 0
+ session-timeout 5
+ exec-timeout 30 0
+ privilege level 15
+ transport output telnet
+ stopbits 1
+line aux 0
+transport input none
+transport output none
+no exec
+exec-timeout 0 1
+no password
+line vty 0 4
+ session-timeout 5
+ access-class LOGIN-ACLv4 in vrf-also
+ exec-timeout 9 0
+ logging synchronous
+ length 25
+ transport input telnet ssh
+ transport output telnet ssh
+line vty 5 15
+ session-timeout 5
+ access-class LOGIN-ACLv4 in vrf-also
+ exec-timeout 9 0
+ logging synchronous
+ length 25
+ transport input telnet ssh
+ transport output telnet ssh
+ 
+
+! NTP
+
+clock timezone CET 1 0
+clock summer-time CET recurring last Sun Mar 3:00 last Sun Oct 3:00
+
+ip access-list standard NTP-ACLv4
+ remark --- NTP server filter ---
+ permit 192.168.0.1
+
+ntp server 192.168.0.1 source Loopback1
+ntp server 192.168.0.1source Loopback1
+
+ntp source Loopback1
+ntp access-group peer NTP-ACLv4
+
+
