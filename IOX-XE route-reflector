@@ -28,7 +28,7 @@ service timestamps log datetime msec
 platform qfp utilization monitor load 80
 
 !
-hostname RR
+hostname $RR-hostname
 !
 boot-start-marker
 boot system flash bootflash:asr1001x-universalk9.16.03.05.SPA.bin
@@ -517,10 +517,9 @@ clock summer-time CET recurring last Sun Mar 3:00 last Sun Oct 3:00
 
 ip access-list standard NTP-ACLv4
  remark --- NTP server filter ---
- permit 192.168.0.1
+ permit $NTP-server 
 
-ntp server 192.168.0.1 source Loopback1
-ntp server 192.168.0.1source Loopback1
+ntp server $NTP-server source Loopback1
 
 ntp source Loopback1
 ntp access-group peer NTP-ACLv4
